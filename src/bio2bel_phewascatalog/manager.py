@@ -60,7 +60,7 @@ def _make_graph(
     )
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
     if use_tqdm:
-        it = tqdm(it, total=len(df.index), desc='generating BEL')
+        it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating BEL')
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
 
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
