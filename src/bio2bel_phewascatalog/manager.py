@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from bio2bel.downloading import make_downloader, make_zipped_df_getter
 from bio2bel.manager.bel_manager import BELManagerMixin
+import bio2bel_hgnc
 from pybel import BELGraph
 from pybel.dsl import Gene, Pathology
 from .constants import DATA_PATH, DATA_URL, MODULE_NAME
@@ -58,6 +59,8 @@ def _make_graph(
         name="PheWAS gene-phenotype relationships",
         version="1.0.0",
     )
+    hgnc_mng = bio2bel_hgnc.Manager()
+    hgnc_mng.populate()
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating BEL')
@@ -79,8 +82,13 @@ def _make_graph(
         )
 
         if pd.notna(gene_symbol):
+            hgnc = hgnc_mng.get_gene_by_hgnc_symbol(gene_symbol)
             graph.add_association(
-                Gene("hgnc", gene_symbol),
+                Gene(
+                    "hgnc",
+                    gene_symbol,
+                    identifier=f'HGNC:{hgnc.identifier}'
+                ),
                 Pathology("mesh", phenotype),
                 citation="24270849",
                 evidence="from PheWAS database",
