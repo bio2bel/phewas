@@ -2,8 +2,9 @@
 
 """Manager for Bio2BEL PheWAS Catalog."""
 
+import logging
 import os
-from typing import Mapping, Optional
+from typing import Dict, Mapping, Optional
 from zipfile import ZipFile
 
 import pandas as pd
@@ -43,6 +44,37 @@ def extract_data(path: Optional[str] = None) -> pd.DataFrame:
             return pd.read_csv(file, sep=",", header=0)
 
 
+def make_dict() -> Dict:
+    """Convert the data to a dictionary."""
+    if not os.path.exists(DATA_PATH):
+        download_data()
+    df = extract_data()
+    return _make_dict(df)
+
+
+def _make_dict(
+        df: pd.DataFrame,
+        use_tqdm: bool = True,
+) -> Dict:
+    _dict = dict()
+    it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
+    if use_tqdm:
+        it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating Dict')
+    for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
+
+        if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
+            logging.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
+            continue
+
+        if pd.notna(gene_symbol):
+            if gene_symbol in _dict:
+                _dict[gene_symbol] += [(odds_ratio, phenotype)]
+            else:
+                _dict[gene_symbol] = [(odds_ratio, phenotype)]
+
+    return _dict
+
+
 def make_graph() -> BELGraph:
     """Convert the data to a BEL graph."""
     if not os.path.exists(DATA_PATH):
@@ -67,7 +99,7 @@ def _make_graph(
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
 
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
-            print('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
+            logging.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
             continue
 
         graph.add_association(
@@ -106,12 +138,19 @@ class Manager(BELManagerMixin):
 
     def __init__(self, *args, **kwargs):
         self._graph = None
+        self._dict = None
 
     @property
     def graph(self) -> BELGraph:
         if self._graph is None:
             self._graph = make_graph()
         return self._graph
+
+    @property
+    def dict(self) -> Dict:
+        if self._dict is None:
+            self._dict = make_dict()
+        return self._dict
 
     @classmethod
     def _get_connection(cls):
@@ -144,3 +183,7 @@ class Manager(BELManagerMixin):
     def to_bel(self) -> BELGraph:
         """Export as a BEL graph."""
         return self.graph
+
+    def to_dict(self) -> Dict:
+        """Export as a BEL dictionary with gene as keys."""
+        return self.dict
