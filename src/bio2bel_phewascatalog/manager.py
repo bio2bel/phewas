@@ -15,6 +15,8 @@ from bio2bel.manager.bel_manager import BELManagerMixin
 from .constants import MODULE_NAME
 from .parser import get_df, make_dict
 
+logger = logging.getLogger(__name__)
+
 columns = [
     "chromosome",
     "snp",
@@ -51,7 +53,7 @@ def _make_graph(
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
 
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
-            logging.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
+            logger.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
             continue
 
         graph.add_association(
@@ -67,20 +69,26 @@ def _make_graph(
 
         if pd.notna(gene_symbol):
             hgnc = hgnc_manager.get_gene_by_hgnc_symbol(gene_symbol)
-            graph.add_association(
-                Gene(
-                    namespace="hgnc",
-                    name=gene_symbol,
-                    identifier=f'HGNC:{hgnc.identifier}',
-                ),
-                Pathology("mesh", phenotype),
-                citation="24270849",
-                evidence="from PheWAS database",
-                annotations={
-                    'bio2bel': MODULE_NAME,
-                    'OR': odds_ratio,
-                }
-            )
+            if hgnc is None:
+                it.write(f'Missing identifier for {gene_symbol}')
+            else:
+                graph.add_association(
+                    Gene(
+                        namespace="hgnc",
+                        name=gene_symbol,
+                        identifier=f'HGNC:{hgnc.identifier}',
+                    ),
+                    Pathology(
+                        namespace="mesh",
+                        name=phenotype,
+                    ),
+                    citation="24270849",
+                    evidence="from PheWAS database",
+                    annotations={
+                        'bio2bel': MODULE_NAME,
+                        'OR': odds_ratio,
+                    }
+                )
 
     return graph
 
