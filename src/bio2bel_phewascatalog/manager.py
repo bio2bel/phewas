@@ -96,6 +96,8 @@ def _make_graph(
 class Manager(BELManagerMixin):
     """Gene-disease relationships."""
 
+    module_name = MODULE_NAME
+
     def __init__(self, *args, **kwargs):
         self._graph = None
         self._dict = None
