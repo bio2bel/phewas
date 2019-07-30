@@ -3,14 +3,14 @@
 """Manager for Bio2BEL PheWAS Catalog."""
 
 import logging
-from typing import Dict, Mapping
+from typing import Dict, Mapping, Optional
 
-import bio2bel_hgnc
 import pandas as pd
 from pybel import BELGraph
 from pybel.dsl import Gene, Pathology
 from tqdm import tqdm
 
+import bio2bel_hgnc
 from bio2bel.manager.bel_manager import BELManagerMixin
 from .constants import MODULE_NAME
 from .parser import get_df, make_dict
@@ -30,16 +30,14 @@ columns = [
 ]
 
 
-def make_graph() -> BELGraph:
-    """Convert the data to a BEL graph."""
-    df = get_df()
-    return _make_graph(df)
-
-
-def _make_graph(
-        df: pd.DataFrame,
+def make_graph(
+        df: Optional[pd.DataFrame] = None,
         use_tqdm: bool = True,
 ) -> BELGraph:
+    """Convert the data to a BEL graph."""
+    if df is None:
+        df = get_df()
+
     graph = BELGraph(
         name="PheWAS gene-phenotype relationships",
         version="1.0.0",
@@ -47,11 +45,11 @@ def _make_graph(
     hgnc_manager = bio2bel_hgnc.Manager()
     if not hgnc_manager.is_populated():
         hgnc_manager.populate()
+
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating BEL')
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
-
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
             logger.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
             continue
