@@ -10,6 +10,7 @@ from zipfile import ZipFile
 import pandas as pd
 from tqdm import tqdm
 
+from bio2bel import AbstractManager
 from bio2bel.downloading import make_downloader, make_zipped_df_getter
 from bio2bel.manager.bel_manager import BELManagerMixin
 import bio2bel_hgnc
@@ -57,20 +58,19 @@ def _make_dict(
         use_tqdm: bool = True,
 ) -> Dict:
     _dict = dict()
-    it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
+    it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio', 'phewas code']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating Dict')
-    for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
-
+    for i, (snp, gene_symbol, phenotype, odds_ratio, icd_code) in it:
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
             logging.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
             continue
 
         if pd.notna(gene_symbol):
             if gene_symbol in _dict:
-                _dict[gene_symbol] += [(odds_ratio, phenotype)]
+                _dict[gene_symbol] += [(odds_ratio, icd_code)]
             else:
-                _dict[gene_symbol] = [(odds_ratio, phenotype)]
+                _dict[gene_symbol] = [(odds_ratio, icd_code)]
 
     return _dict
 
@@ -133,7 +133,7 @@ def _make_graph(
     return graph
 
 
-class Manager(BELManagerMixin):
+class Manager(BELManagerMixin):  # , AbstractManager): should i implement _base??
     """Gene-disease relationships."""
 
     def __init__(self, *args, **kwargs):
