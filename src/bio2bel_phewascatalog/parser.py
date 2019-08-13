@@ -2,6 +2,7 @@
 
 """Parsers and downloaders for Bio2BEL PheWAS Catalog."""
 
+from collections import defaultdict
 import logging
 from typing import Dict
 
@@ -31,7 +32,7 @@ def _make_dict(
         df: pd.DataFrame,
         use_tqdm: bool = True,
 ) -> Dict:
-    _dict = dict()
+    _dict = defaultdict(list)
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio', 'phewas code']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating Dict')
@@ -42,9 +43,6 @@ def _make_dict(
             continue
 
         if pd.notna(gene_symbol):
-            if gene_symbol in _dict:
-                _dict[gene_symbol] += [(odds_ratio, icd_code)]
-            else:
-                _dict[gene_symbol] = [(odds_ratio, icd_code)]
+            _dict[gene_symbol] += [(odds_ratio, icd_code)]
 
     return _dict
