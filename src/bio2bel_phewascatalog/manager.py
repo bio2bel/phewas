@@ -49,6 +49,7 @@ def make_graph(
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating BEL')
+    hgnc_ids = dict()
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
             logger.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
@@ -66,7 +67,9 @@ def make_graph(
         )
 
         if pd.notna(gene_symbol):
-            hgnc = hgnc_manager.get_gene_by_hgnc_symbol(gene_symbol)
+            if gene_symbol not in hgnc_ids:
+                hgnc_ids[gene_symbol] = hgnc_manager.get_gene_by_hgnc_symbol(gene_symbol)
+            hgnc = hgnc_ids[gene_symbol]
             if hgnc is None:
                 it.write(f'Missing identifier for {gene_symbol}')
             else:
@@ -91,7 +94,7 @@ def make_graph(
     return graph
 
 
-class Manager(BELManagerMixin):  # , AbstractManager): should i implement _base??
+class Manager(BELManagerMixin):
     """Gene-disease relationships."""
 
     module_name = MODULE_NAME
