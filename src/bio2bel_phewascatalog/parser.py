@@ -43,6 +43,6 @@ def _make_dict(
             continue
 
         if pd.notna(gene_symbol):
-            _dict[gene_symbol] += [(odds_ratio, icd_code)]
+            _dict[gene_symbol].append((odds_ratio, icd_code))
 
     return _dict
