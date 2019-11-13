@@ -4,6 +4,7 @@
 
 from .constants import get_version
 from .manager import Manager
+from .parser import get_df
 
 __all__ = [
     'Manager',
