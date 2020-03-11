@@ -6,12 +6,12 @@ import logging
 from typing import Dict, Mapping, Optional
 
 import pandas as pd
-from pybel import BELGraph
-from pybel.dsl import Gene, Pathology
+from bio2bel.manager.bel_manager import BELManagerMixin
+from protmapper.api import hgnc_name_to_id
 from tqdm import tqdm
 
-import bio2bel_hgnc
-from bio2bel.manager.bel_manager import BELManagerMixin
+import pybel.dsl
+from pybel import BELGraph
 from .constants import MODULE_NAME
 from .parser import get_df, make_dict
 
@@ -31,8 +31,8 @@ columns = [
 
 
 def make_graph(
-        df: Optional[pd.DataFrame] = None,
-        use_tqdm: bool = True,
+    df: Optional[pd.DataFrame] = None,
+    use_tqdm: bool = True,
 ) -> BELGraph:
     """Convert the data to a BEL graph."""
     if df is None:
@@ -42,22 +42,18 @@ def make_graph(
         name="PheWAS gene-phenotype relationships",
         version="1.0.0",
     )
-    hgnc_manager = bio2bel_hgnc.Manager()
-    if not hgnc_manager.is_populated():
-        hgnc_manager.populate()
 
     it = df[["snp", 'gene_name', 'phewas phenotype', 'odds-ratio']].iterrows()
     if use_tqdm:
         it = tqdm(it, total=len(df.index), desc='PheWAS Catalog - generating BEL')
-    hgnc_ids = dict()
     for i, (snp, gene_symbol, phenotype, odds_ratio) in it:
         if not snp or not gene_symbol or not phenotype or pd.isna(phenotype):
             logger.debug('Skipping', i, snp, gene_symbol, phenotype, odds_ratio)
             continue
 
         graph.add_association(
-            Gene("dbsnp", snp),
-            Pathology("mesh", phenotype),
+            pybel.dsl.Gene("dbsnp", identifier=snp),
+            pybel.dsl.Pathology("mesh", name=phenotype),
             citation="24270849",
             evidence="from PheWAS database",
             annotations={
@@ -67,19 +63,17 @@ def make_graph(
         )
 
         if pd.notna(gene_symbol):
-            if gene_symbol not in hgnc_ids:
-                hgnc_ids[gene_symbol] = hgnc_manager.get_gene_by_hgnc_symbol(gene_symbol)
-            hgnc = hgnc_ids[gene_symbol]
-            if hgnc is None:
+            hgnc_id = hgnc_name_to_id.get(gene_symbol)
+            if hgnc_id is None:
                 it.write(f'Missing identifier for {gene_symbol}')
             else:
                 graph.add_association(
-                    Gene(
+                    pybel.dsl.Gene(
                         namespace="hgnc",
                         name=gene_symbol,
-                        identifier=f'HGNC:{hgnc.identifier}',
+                        identifier=hgnc_id,
                     ),
-                    Pathology(
+                    pybel.dsl.Pathology(
                         namespace="mesh",
                         name=phenotype,
                     ),
@@ -133,11 +127,11 @@ class Manager(BELManagerMixin):
 
     def count_diseases(self) -> int:
         """Count the number of diseases in the database."""
-        return sum(isinstance(node, Pathology) for node in self.graph)
+        return sum(isinstance(node, pybel.dsl.Pathology) for node in self.graph)
 
     def count_genes(self) -> int:
         """Count the number of diseases in the database."""
-        return sum(isinstance(node, Gene) for node in self.graph)
+        return sum(isinstance(node, pybel.dsl.Gene) for node in self.graph)
 
     def count_relations(self) -> int:
         """Count the number of gene-phenotypes relationships."""
